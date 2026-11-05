@@ -5,7 +5,7 @@ package.domain = com.obd.vision
 source.dir = .
 source.main = main.py
 version = 2.0
-requirements = python3,kivy
+requirements = python3,kivy==2.3.0
 icon.filename = %(source.dir)s/logo.png
 orientation = portrait
 android.permissions = INTERNET
