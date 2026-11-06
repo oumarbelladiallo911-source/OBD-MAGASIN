@@ -42,7 +42,8 @@ jobs:
           ANDROID_HOME: /home/runner/.buildozer/android/platform/android-sdk
           ANDROID_SDK_ROOT: /home/runner/.buildozer/android/platform/android-sdk
         run: |
-          buildozer -v android debug 2>&1 | tee build.log || true
+          set -o pipefail
+          buildozer -v android debug 2>&1 | tee build.log
           echo "===== DERNIERES 300 LIGNES - LA VRAIE ERREUR EST ICI ====="
           tail -n 300 build.log
       - name: Upload log
