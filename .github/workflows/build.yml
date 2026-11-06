@@ -9,26 +9,22 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
-
       - name: Install dependencies
         run: |
           sudo apt update
           sudo apt install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev wget
           pip install --upgrade pip
           pip install buildozer cython==0.29.36
-
-      - name: Fix SDK and sdkmanager path
+      - name: Fix SDK
         run: |
           export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
           mkdir -p $ANDROID_HOME/cmdline-tools
@@ -41,19 +37,20 @@ jobs:
           sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2"
           mkdir -p $ANDROID_HOME/tools/bin
           ln -sf $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager $ANDROID_HOME/tools/bin/sdkmanager
-          ln -sf $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager $ANDROID_HOME/tools/bin/avdmanager
-          ls $ANDROID_HOME/tools/bin/
-
       - name: Build APK
         env:
           ANDROID_HOME: /home/runner/.buildozer/android/platform/android-sdk
           ANDROID_SDK_ROOT: /home/runner/.buildozer/android/platform/android-sdk
         run: |
-          export ANDROID_HOME=/home/runner/.buildozer/android/platform/android-sdk
-          mkdir -p $ANDROID_HOME/tools/bin
-          ln -sf $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager $ANDROID_HOME/tools/bin/sdkmanager || true
-          buildozer -v android debug
-
+          buildozer -v android debug 2>&1 | tee build.log || true
+          echo "===== DERNIERES 300 LIGNES - LA VRAIE ERREUR EST ICI ====="
+          tail -n 300 build.log
+      - name: Upload log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
