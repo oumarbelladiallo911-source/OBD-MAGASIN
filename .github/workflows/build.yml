@@ -38,8 +38,8 @@ jobs:
       env:
         TERM: xterm
 
-    - name: Upload APK Artifact
-      uses: actions/artifacts@v4
+       - name: Upload APK Artifact
+      uses: actions/upload-artifact@v4
       with:
         name: OBD-Vision-Android-APK
         path: bin/*.apk
