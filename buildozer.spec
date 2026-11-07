@@ -7,13 +7,16 @@ source.include_exts = py,png,jpg,kv,atlas,db
 version = 1.0.0
 icon.filename = %(source.dir)s/logo.png
 
-# Dépendances nettoyées et figées pour éviter les conflits
+# Dépendances requises
 requirements = python3,kivy==2.3.0,fpdf,sqlite3
 
 orientation = portrait
 fullscreen = 1
 
-# Autorisations obligatoires pour l'écriture locale du PDF
+# Force l'acceptation automatique des licences dans le fichier de config
+android.accept_sdk_license = True
+
+# Permissions de stockage pour les PDF sans internet
 android.permissions = android.permission.WRITE_EXTERNAL_STORAGE, android.permission.READ_EXTERNAL_STORAGE
 
 android.api = 33
