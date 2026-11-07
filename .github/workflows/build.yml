@@ -16,12 +16,12 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-cache-dependency-path: '**/requirements.txt'
         python-version: '3.11'
 
-    - name: Install system dependencies
+    - name: Fix Apt Repositories and Install System Dependencies
       run: |
-        sudo apt-get update
+        sudo rm -rf /var/lib/apt/lists/*
+        sudo apt-get update --fix-missing || true
         sudo apt-get install -y build-essential ccache git libffi-dev libssl-dev xclip libtinfo5 \
           cmake intltool libtool shadow-utils pkg-config zlib1g-dev libncurses5-dev \
           libgdbm-dev libnss3-dev libsqlite3-dev libreadline-dev libbz2-dev autoheader \
