@@ -3,8 +3,6 @@ name: Build Android APK (DIEN SANOU)
 on:
   push:
     branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
@@ -18,25 +16,24 @@ jobs:
     - name: Configuration de Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.11'
+        python-version: '3.10'
 
     - name: Installation des dépendances Linux obligatoires
       run: |
         sudo apt-get update
         sudo apt-get install -y ccache git libffi-dev libssl-dev autoconf automake libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake zip unzip openjdk-17-jdk
-        pip install --upgrade pip
-        pip install cython==0.29.36 buildozer toolbelt
+        pip install --upgrade pip setuptools virtualenv
+        pip install "cython<3.0.0" buildozer
 
-    - name: Build de l'APK (Contournement de la sécurité Root)
+    - name: Build de l'APK (Acceptation forcée des licences)
       run: |
-        # Création forcée des dossiers locaux pour Buildozer
-        mkdir -p ~/.buildozer
-        # Exécution en mode debug
+        mkdir -p ~/.android
+        touch ~/.android/repositories.cfg
         yes | buildozer android debug
       env:
         CI: true
 
-    - name: Sauvegarde de l'APK final
+    - name: Sauvegarde et téléchargement de l'APK final
       uses: actions/upload-artifact@v4
       with:
         name: DIEN-SANOU-APK
