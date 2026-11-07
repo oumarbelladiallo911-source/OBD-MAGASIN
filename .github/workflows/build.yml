@@ -7,72 +7,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
+    container:
+      image: kivy/buildozer:latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Install dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses-dev libncursesw5-dev libtinfo-dev cmake libffi-dev libssl-dev wget ant
-          pip install --upgrade pip
-          pip install buildozer cython==0.29.36
-
-      - name: Pre-download SDK + NDK + Ant
-        run: |
-          set -o pipefail
-          mkdir -p $HOME/.buildozer/android/platform/android-sdk
-          export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
-          export ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
-          export ANDROID_NDK_HOME=$HOME/.buildozer/android/platform/android-ndk-r25b
-          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
-          echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME" >> $GITHUB_ENV
-          echo "ANDROID_NDK_ROOT=$ANDROID_NDK_HOME" >> $GITHUB_ENV
-          cd $HOME/.buildozer/android/platform/
-          echo "=== NDK ==="
-          if [ ! -d "android-ndk-r25b" ]; then
-            wget https://dl.google.com/android/repository/android-ndk-r25b-linux.zip -O ndk.zip
-            unzip -q ndk.zip
-            rm ndk.zip
-          fi
-          echo "=== ANT ==="
-          if [ ! -d "apache-ant-1.10.14" ]; then
-            wget https://archive.apache.org/dist/ant/binaries/apache-ant-1.10.14-bin.tar.gz -O ant.tar.gz
-            tar -xzf ant.tar.gz
-            rm ant.tar.gz
-          fi
-          echo "=== SDKMANAGER - LE FIX DE TON ERREUR ACTUELLE ==="
-          if [ ! -f "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then
-            cd /tmp
-            wget https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip -O cmdtools.zip
-            rm -rf /tmp/cmdtools_tmp
-            mkdir -p /tmp/cmdtools_tmp
-            unzip -q cmdtools.zip -d /tmp/cmdtools_tmp
-            mkdir -p $ANDROID_HOME/cmdline-tools/latest
-            cp -r /tmp/cmdtools_tmp/cmdline-tools/* $ANDROID_HOME/cmdline-tools/latest/
-            rm -rf /tmp/cmdtools_tmp cmdtools.zip
-          fi
-          echo "=== LIEN POUR BUILDOZER - tools/bin/sdkmanager ==="
-          mkdir -p $ANDROID_HOME/tools/bin
-          cp $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager $ANDROID_HOME/tools/bin/sdkmanager || true
-          cp $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager $ANDROID_HOME/tools/bin/avdmanager || true
-          chmod +x $ANDROID_HOME/tools/bin/sdkmanager $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager
-          ls -la $ANDROID_HOME/tools/bin/
-          ls -la $ANDROID_HOME/cmdline-tools/latest/bin/
-          echo "=== ACCEPT LICENCES + INSTALL PLATFORM-TOOLS ==="
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME --licenses || true
-          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME "platform-tools" "platforms;android-33" "build-tools;33.0.2"
 
       - name: Build APK
         run: |
