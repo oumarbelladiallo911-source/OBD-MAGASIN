@@ -1,43 +1,44 @@
-name: Build APK
+name: Build Android APK (Kivy)
+
 on:
   push:
-    branches: [ main ]
-  workflow_dispatch:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch: # Permet de lancer le build manuellement depuis GitHub
+
 jobs:
   build:
-    runs-on: ubuntu-22.04
-    timeout-minutes: 25
-    container:
-      image: kivy/buildozer:latest
+    runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - name: Get fpdf2 en dossier
-        run: |
-          pip download fpdf2 --no-deps -d /tmp/fpdfdl
-          python3 -c "import zipfile, glob; z=glob.glob('/tmp/fpdfdl/*.whl')[0]; zipfile.ZipFile(z).extractall('/tmp/fpdf_unzip')"
-          cp -r /tmp/fpdf_unzip/fpdf ./fpdf
-          ls -lh fpdf | head
-      - name: Build APK
-        run: |
-          set -eo pipefail
-          yes | buildozer android debug 2>&1 | tee build.log
-          test ${PIPESTATUS[0]} -eq 0
-      - name: LA LIGNE OU CA A PLANTE
-        if: failure()
-        run: |
-          echo "===== 100 DERNIERES LIGNES ====="
-          tail -n 100 build.log
-          echo "=== LES ERREURS ==="
-          grep -i -n "error/|failed/|exception/|traceback/|fatal" build.log | tail -n 50
-      - name: Upload log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log
-          path: build.log
-      - name: Upload APK
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: apk
-          path: bin/*.apk
+    - name: Checkout du code
+      uses: actions/checkout@v4
+
+    - name: Configuration de l'environnement Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Installation des dépendances système requises par Buildozer
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ccache git libffi-dev libssl-dev autoconf automake libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake zip unzip
+        sudo apt-get install -y openjdk-17-jdk
+        pip install --upgrade pip
+        pip install cython buildozer toolbelt
+
+    - name: Build de l'APK avec Buildozer
+      id: buildozer
+      run: |
+        # Force buildozer à accepter les licences Android SDK en mode automatique
+        yes | buildozer android debug
+      env:
+        # Évite les blocages interactifs pendant le build sur GitHub
+        CI: true
+
+    - name: Téléchargement de l'APK final (Artifact)
+      uses: actions/upload-artifact@v4
+      with:
+        name: MonApplication-Android-APK
+        path: bin/*.apk
