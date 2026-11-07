@@ -560,5 +560,147 @@ def job_payer_dette():
             if h_row: cr.execute("UPDATE historique SET statut='Vente Faîte' WHERE id=?", (h_row[0],))
         cn.commit(); cn.close(); p.dismiss(); afficher_popup_info("Succès", "Paiement pris en compte !"); rafraichir_tableaux()
     bv.bind(on_press=encaisser); p.open()
+def augmenter_stock_existant_form():
+    conn = sqlite3.connect(DB_PATH); cur = conn.cursor()
+    cur.execute("SELECT nom_produit FROM base_donnees"); liste = [r[0] for r in cur.fetchall()]; conn.close()
+    if not liste: afficher_popup_erreur("Erreur", "Aucun produit existant."); return
+    box = BoxLayout(orientation='vertical', padding=10, spacing=5)
+    box.add_widget(Label(text="Sélectionnez le Produit :"))
+    combo = Spinner(text=liste[0], values=liste, size_hint_y=None, height=40); box.add_widget(combo)
+    box.add_widget(Label(text="Quantité à ajouter :"))
+    e_add = TextInput(multiline=False, size_hint_y=None, height=40); box.add_widget(e_add)
+    bv = Button(text="Valider l'Ajout", background_color=get_color_from_hex("#27AE60"), size_hint_y=None, height=45)
+    box.add_widget(bv)
+    p = Popup(title="Augmenter Stock", content=box, size_hint=(0.9, 0.45))
+    def ok_add(ins):
+        prod = combo.text
+        try: q = float(e_add.text)
+        except: afficher_popup_erreur("Erreur", "Quantité invalide."); return
+        if q <= 0: return
+        cn = sqlite3.connect(DB_PATH); cr = cn.cursor()
+        cr.execute("UPDATE base_donnees SET stock = stock + ? WHERE nom_produit=?", (q, prod))
+        cr.execute("SELECT stock, qte_vendu FROM base_donnees WHERE nom_produit=?", (prod,))
+        stk, qv = cr.fetchone(); rest = stk - qv
+        if rest <= 10: cr.execute("INSERT OR REPLACE INTO alerte (date_alerte, nom_produit, stock_restant) VALUES (?, ?, ?)", (datetime.now().strftime("%d/%m/%Y %H:%M:%S"), prod, rest))
+        else: cr.execute("DELETE FROM alerte WHERE nom_produit=?", (prod,))
+        cn.commit(); cn.close(); p.dismiss(); afficher_popup_info("Succès", "Stock augmenté !"); rafraichir_tableaux()
+    bv.bind(on_press=ok_add); p.open()
+
+def ajouter_nouveau_produit_form():
+    box = BoxLayout(orientation='vertical', padding=10, spacing=5)
+    box.add_widget(Label(text="Nom du Nouveau Produit :"))
+    e_p = TextInput(multiline=False, size_hint_y=None, height=35); box.add_widget(e_p)
+    box.add_widget(Label(text="Quantité Stock :"))
+    e_q = TextInput(multiline=False, size_hint_y=None, height=35); box.add_widget(e_q)
+    box.add_widget(Label(text="Prix d'achat ? (FG) :"))
+    e_pa = TextInput(multiline=False, size_hint_y=None, height=35); box.add_widget(e_pa)
+    box.add_widget(Label(text="Prix de Vente Fixe ? (FG) :"))
+    e_pv = TextInput(multiline=False, size_hint_y=None, height=35); box.add_widget(e_pv)
+    bv = Button(text="Créer l'Article", background_color=get_color_from_hex("#27AE60"), size_hint_y=None, height=45)
+    box.add_widget(bv)
+    p = Popup(title="Nouveau Produit", content=box, size_hint=(0.95, 0.8))
+    def ok(ins):
+        prod = e_p.text.strip()
+        try: q, pa, pv = float(e_q.text), float(e_pa.text), float(e_pv.text)
+        except: afficher_popup_erreur("Erreur", "Champs invalides."); return
+        if not prod: return
+        cn = sqlite3.connect(DB_PATH); cr = cn.cursor()
+        cr.execute("SELECT MAX(id_produit) FROM base_donnees"); mx = cr.fetchone(); nid = 1 if mx[0] is None else mx[0]+1
+        cr.execute("INSERT INTO base_donnees (date_enregistrement, id_produit, nom_produit, prix_revient, prix_vente, stock) VALUES (?,?,?,?,?,?)", (datetime.now().strftime("%d/%m/%Y"), nid, prod, pa, pv, q))
+        if q <= 10: cr.execute("INSERT OR REPLACE INTO alerte (date_alerte, nom_produit, stock_restant) VALUES (?, ?, ?)", (datetime.now().strftime("%d/%m/%Y %H:%M:%S"), prod, q))
+        cn.commit(); cn.close(); p.dismiss(); afficher_popup_info("Succès", f"Produit N {nid} ajouté !"); rafraichir_tableaux()
+    bv.bind(on_press=ok); p.open()
+
+class EcranPrincipal(Screen):
+    def __init__(self, **kwargs):
+        super(EcranPrincipal, self).__init__(**kwargs)
+        layout_principal = BoxLayout(orientation='vertical', padding=10, spacing=10)
+        
+        # Grille des 8 boutons principaux tactiles
+        grille_boutons = GridLayout(cols=2, spacing=10, size_hint_y=None, height=280)
+        boutons_config = [
+            ("Effectuer Une Vente", job_effectuer_vente, "#2980B9"),
+            ("Imprimante En PDF", job_imprimer_achats_pdf, "#2980B9"),
+            ("Statistique Du Magasin", job_statistique_magasin, "#2980B9"),
+            ("Vente A Credit", job_vente_credit, "#2980B9"),
+            ("Annuler Une Vente", job_annuler_vente, "#2980B9"),
+            ("Ajouter Stock / Produit", job_ajouter_stock, "#2980B9"),
+            ("Bilan D'un Produit", job_bilan_produit, "#2980B9"),
+            ("Payer Dette", job_payer_dette, "#2980B9")
+        ]
+        for texte, action, couleur in boutons_config:
+            btn = Button(text=texte, font_size=13, background_color=get_color_from_hex(couleur), halign='center')
+            btn.bind(on_press=lambda x, act=action: act())
+            grille_boutons.add_widget(btn)
+        layout_principal.add_widget(grille_boutons)
+        
+        layout_principal.add_widget(Label(text="RESULTATS EN DIRECT", font_size=16, bold=True, size_hint_y=None, height=30))
+        
+        # Système d'onglets pour Mobile
+        navigation_onglets = BoxLayout(size_hint_y=None, height=45, spacing=2)
+        onglets = [("Magasin", 1, "#E67E22"), ("Historique", 2, "#27AE60"), ("Alerte", 3, "#E74C3C"), ("Crédits", 4, "#F1C40F")]
+        for t, num, col in onglets:
+            btn_tab = Button(text=t, font_size=12, bold=True, background_color=get_color_from_hex(col))
+            btn_tab.bind(on_press=lambda x, n=num: self.changer_onglet(n))
+            navigation_onglets.add_widget(btn_tab)
+        layout_principal.add_widget(navigation_onglets)
+        
+        # Zone de défilement des tableaux
+        self.conteneur_donnees = ScrollView()
+        self.layout_donnees = BoxLayout(orientation='vertical', size_hint_y=None, spacing=5)
+        self.layout_donnees.bind(minimum_height=self.layout_donnees.setter('height'))
+        self.conteneur_donnees.add_widget(self.layout_donnees)
+        layout_principal.add_widget(self.conteneur_donnees)
+        
+        self.add_widget(layout_principal)
+        self.onglet_actif = 1
+        self.mettre_a_jour_les_donnees()
+
+    def changer_onglet(self, num):
+        self.onglet_actif = num
+        self.mettre_a_jour_les_donnees()
+
+    def mettre_a_jour_les_donnees(self):
+        self.layout_donnees.clear_widgets()
+        conn = sqlite3.connect(DB_PATH); cur = conn.cursor()
+        
+        if self.onglet_actif == 1:
+            cur.execute("SELECT date_enregistrement, id_produit, nom_produit, prix_revient, prix_vente, stock, qte_vendu FROM base_donnees")
+            for x in cur.fetchall():
+                texte = f"[{x[0]}] ID:{x[1]} - {x[2]}\nPR: {formater_fg(x[3])} | PV: {formater_fg(x[4])}\nStock: {formater_entier(x[5])} | Vendu: {formater_entier(x[6])}"
+                self.layout_donnees.add_widget(Label(text=texte, size_hint_y=None, height=60, color=(1,1,1,1), halign='left'))
+                
+        elif self.onglet_actif == 2:
+            cur.execute("SELECT date_vente, nom_produit, qte_vendu, prix_vendu, montant_total, statut FROM historique ORDER BY id DESC")
+            for x in cur.fetchall():
+                c = (0.2, 0.8, 0.4, 1) if x[5] == "Vente Faîte" else ((0.1, 0.5, 0.8, 1) if "Crédit" in x[5] else (0.9, 0.3, 0.3, 1))
+                texte = f"[{x[0]}] {x[1]} x{formater_entier(x[2])}\nPU: {formater_fg(x[3])} | Total: {formater_fg(x[4])} ({x[5]})"
+                self.layout_donnees.add_widget(Label(text=texte, size_hint_y=None, height=55, color=c))
+                
+        elif self.onglet_actif == 3:
+            cur.execute("SELECT date_alerte, nom_produit, stock_restant FROM alerte")
+            for x in cur.fetchall():
+                texte = f"ALERT ! [{x[0]}] {x[1]} - Reste: {formater_entier(x[2])} unités"
+                self.layout_donnees.add_widget(Label(text=texte, size_hint_y=None, height=45, color=(1, 0.3, 0.3, 1)))
+                
+        elif self.onglet_actif == 4:
+            # Affichage dynamique avec Qté et Téléphone au bon endroit
+            cur.execute("SELECT date_enregistrement, qte, nom_produit, nom_client, montant_credit, somme_restant, telephone, situation FROM credit")
+            for x in cur.fetchall():
+                c = (0.9, 0.8, 0.2, 1) if x[7] == "Remboursé 1/2" else ((0.2, 0.8, 0.4, 1) if x[7] == "Rembourser 100%" else (1,1,1,1))
+                texte = f"[{x[0]}] Client: {x[3]} (Tel: {x[6]})\nProd: {x[2]} (Qté: {formater_entier(x[1])})\nDette: {formater_fg(x[4])} | Reste: {formater_fg(x[5])} ({x[7]})"
+                self.layout_donnees.add_widget(Label(text=texte, size_hint_y=None, height=65, color=c))
+                
+        conn.close()
+
+class MagasinApp(App):
+    def build(self):
+        Window.clearcolor = get_color_from_hex(BG_FOND)
+        sm = ScreenManager()
+        sm.add_widget(EcranPrincipal(name='principal'))
+        return sm
+
+if __name__ == '__main__':
+    MagasinApp().run()
 
 
