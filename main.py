@@ -358,4 +358,105 @@ def job_vente_credit():
         else: cr.execute("DELETE FROM alerte WHERE nom_produit=?", (prod,))
         cn.commit(); cn.close(); p.dismiss(); afficher_popup_info("Succès", "Crédit enregistré !"); rafraichir_tableaux()
     bv.bind(on_press=Enregistrer); p.open()
+def job_annuler_vente():
+    conn = sqlite3.connect(DB_PATH); cur = conn.cursor()
+    cur.execute("SELECT DISTINCT nom_produit FROM historique WHERE statut!='Vente annuler'")
+    liste = [r[0] for r in cur.fetchall()]; conn.close()
+    if not liste: afficher_popup_erreur("Erreur", "Aucune vente à annuler."); return
+    box = BoxLayout(orientation='vertical', padding=10, spacing=5)
+    box.add_widget(Label(text="Produit à Annuler :"))
+    combo = Spinner(text=liste[0], values=liste, size_hint_y=None, height=40); box.add_widget(combo)
+    box.add_widget(Label(text="Quantité à annuler :"))
+    e_q = TextInput(text="1", multiline=False, size_hint_y=None, height=40); box.add_widget(e_q)
+    bv = Button(text="Valider l'Annulation", background_color=get_color_from_hex("#E74C3C"), size_hint_y=None, height=45)
+    box.add_widget(bv)
+    p = Popup(title="Annuler Une Vente", content=box, size_hint=(0.9, 0.5))
+    def exec_ann(ins):
+        prod = combo.text
+        try: q = float(e_q.text)
+        except: afficher_popup_erreur("Erreur", "Quantité invalide."); return
+        if q <= 0: return
+        cn = sqlite3.connect(DB_PATH); cr = cn.cursor()
+        cr.execute("SELECT id, statut FROM historique WHERE LOWER(nom_produit)=LOWER(?) AND qte_vendu=? AND statut!='Vente annuler' LIMIT 1", (prod.strip(), q))
+        row = cr.fetchone()
+        if not row: afficher_popup_erreur("Erreur", "Aucune vente correspondante."); cn.close(); return
+        cr.execute("UPDATE historique SET statut='Vente annuler' WHERE id=?", (row[0],))
+        cr.execute("UPDATE base_donnees SET qte_vendu = qte_vendu - ? WHERE LOWER(nom_produit)=LOWER(?)", (q, prod.strip()))
+        cr.execute("SELECT stock, qte_vendu FROM base_donnees WHERE LOWER(nom_produit)=LOWER(?)", (prod.strip(),))
+        stk, qv = cr.fetchone(); rest = stk - qv
+        if rest > 10: cr.execute("DELETE FROM alerte WHERE LOWER(nom_produit)=LOWER(?)", (prod.strip(),))
+        else: cr.execute("INSERT OR REPLACE INTO alerte (date_alerte, nom_produit, stock_restant) VALUES (?, ?, ?)", (datetime.now().strftime("%d/%m/%Y %H:%M:%S"), prod.strip(), rest))
+        cn.commit(); cn.close(); p.dismiss(); afficher_popup_info("Succès", "Vente Annulée !"); rafraichir_tableaux()
+    bv.bind(on_press=exec_ann); p.open()
+
+def job_imprimer_achats_pdf():
+    box = BoxLayout(orientation='vertical', padding=10, spacing=5)
+    box.add_widget(Label(text="Titre du document PDF :"))
+    e_t = TextInput(hint_text="Ex: Alerte du jour", multiline=False, size_hint_y=None, height=40); box.add_widget(e_t)
+    bv = Button(text="Générer le PDF", background_color=get_color_from_hex("#2980B9"), size_hint_y=None, height=45)
+    box.add_widget(bv)
+    p = Popup(title="Imprimer en PDF", content=box, size_hint=(0.9, 0.4))
+    def ok_pdf(ins):
+        titre = e_t.text.strip()
+        if not titre: return
+        cn = sqlite3.connect(DB_PATH); cr = cn.cursor()
+        cr.execute("SELECT nom_produit, stock_restant, date_alerte FROM alerte"); lignes = cr.fetchall(); cn.close()
+        try:
+            from fpdf import FPDF
+            pdf = FPDF()
+            pdf.add_page()
+            pdf.set_font("Arial", "B", 16)
+            pdf.cell(0, 10, "Mes Achats - Alerte Stock", 0, 1, "C")
+            pdf.set_font("Arial", "", 12)
+            pdf.cell(0, 8, f"Titre: {titre}", 0, 1)
+            pdf.cell(0, 8, f"Date: {datetime.now().strftime('%d/%m/%Y %H:%M')}", 0, 1)
+            pdf.ln(10)
+            pdf.set_font("Arial", "B", 11)
+            pdf.cell(50, 10, "Date Alerte", 1, 0, "C")
+            pdf.cell(70, 10, "Produit", 1, 0, "C")
+            pdf.cell(50, 10, "Stock Restant", 1, 0, "C")
+            pdf.ln()
+            pdf.set_font("Arial", "", 10)
+            for li in lignes:
+                pdf.cell(50, 8, str(li[2]), 1)
+                pdf.cell(70, 8, str(li[0]), 1)
+                pdf.cell(50, 8, str(int(li[1])), 1, 0, "C")
+                pdf.ln()
+            nom_safe = "".join(c for c in titre if c.isalnum() or c in " -_").strip()
+            chemin = os.path.join(os.environ.get('KIVY_HOME', '.'), f"{nom_safe}.pdf")
+            pdf.output(chemin)
+            p.dismiss(); afficher_popup_info("PDF Créé", f"Fichier enregistré :\n{chemin}")
+        except Exception as e:
+            afficher_popup_error("Erreur PDF", str(e))
+    bv.bind(on_press=ok_pdf); p.open()
+
+def job_bilan_produit():
+    conn = sqlite3.connect(DB_PATH); cur = conn.cursor()
+    cur.execute("SELECT nom_produit FROM base_donnees"); liste = [r[0] for r in cur.fetchall()]; conn.close()
+    if not liste: afficher_popup_error("Erreur", "Aucun produit disponible."); return
+    box = BoxLayout(orientation='vertical', padding=10, spacing=5)
+    box.add_widget(Label(text="Sélectionnez le Produit :"))
+    combo = Spinner(text=liste[0], values=liste, size_hint_y=None, height=40); box.add_widget(combo)
+    bv = Button(text="Afficher le Bilan", background_color=get_color_from_hex("#2980B9"), size_hint_y=None, height=45)
+    box.add_widget(bv)
+    p = Popup(title="Bilan Par Produit", content=box, size_hint=(0.9, 0.4))
+    def voir_bilan(ins):
+        prod_demande = combo.text
+        cn = sqlite3.connect(DB_PATH); cr = cn.cursor()
+        cr.execute("SELECT date_vente, nom_produit, qte_vendu, prix_vendu, statut FROM historique")
+        hist = cr.fetchall()
+        cr.execute("SELECT prix_revient FROM base_donnees WHERE LOWER(nom_produit)=LOWER(?)", (prod_demande.strip(),))
+        row_rev = cr.fetchone()
+        if not row_rev: afficher_popup_erreur("Erreur", "Produit introuvable."); cn.close(); return
+        pa = row_rev[0]; q_j, q_j_tous, b_j, auj = 0, 0, 0, date.today().strftime("%d/%m/%Y")
+        for dt, pr, q, px, st in hist:
+            if st.upper() == "VENTE ANNULER" or "CREDIT" in st.upper(): continue
+            if auj in dt: q_j_tous += q
+            if pr.upper() == prod_demande.upper():
+                if auj in dt: q_j += q; b_j += (px - pa) * q
+        cn.close(); p.dismiss()
+        pct = (q_j / q_j_tous * 100) if q_j_tous > 0 else 0
+        afficher_popup_info(f"Bilan : {prod_demande.upper()}", f"Quantité Vendue Aujourd'hui : {int(q_j)}\nBénéfice Réel Jour : {formater_fg(b_j)}\nPourcentage : {pct:.0f} %")
+    bv.bind(on_press=voir_bilan); p.open()
+
 
