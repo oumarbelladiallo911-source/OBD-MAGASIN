@@ -19,7 +19,7 @@ jobs:
           yes y | buildozer android debug 2>&1 | tee build.log
           test ${PIPESTATUS[0]} -eq 0
 
-           - name: LA LIGNE OU CA A PLANTE
+      - name: LA LIGNE OU CA A PLANTE
         if: failure()
         run: |
           echo "===== CHERCHE FPDF2 ET RECIPE ====="
