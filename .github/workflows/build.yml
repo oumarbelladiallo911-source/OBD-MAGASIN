@@ -1,57 +1,45 @@
-name: Build APK
+name: Build Android APK
+
 on:
   push:
-    branches: [ main ]
+    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-22.04
+
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-      - name: Install dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses-dev libncursesw5-dev libtinfo-dev cmake libffi-dev libssl-dev wget
-          pip install --upgrade pip
-          pip install buildozer cython==0.29.36
-      - name: Fix SDK
-        run: |
-          echo "ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk" >> $GITHUB_ENV
-          echo "ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk" >> $GITHUB_ENV
-          export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
-          mkdir -p $ANDROID_HOME/cmdline-tools
-          cd /tmp
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdtools.zip
-          unzip -q cmdtools.zip -d $ANDROID_HOME/cmdline-tools
-          mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest || true
-          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$PATH
-          yes | sdkmanager --licenses
-          sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2"
-      - name: Build APK
-        run: |
-          set -o pipefail
-          buildozer -v android debug 2>&1 | tee build.log
-          echo "===== DERNIERES 300 LIGNES - LA VRAIE ERREUR EST ICI ====="
-          tail -n 300 build.log
-      - name: Upload log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log
-          path: build.log
-      - name: Upload APK
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: apk
-          path: bin/*.apk
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-cache-dependency-path: '**/requirements.txt'
+        python-version: '3.11'
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential ccache git libffi-dev libssl-dev xclip libtinfo5 \
+          cmake intltool libtool shadow-utils pkg-config zlib1g-dev libncurses5-dev \
+          libgdbm-dev libnss3-dev libsqlite3-dev libreadline-dev libbz2-dev autoheader \
+          automake autoconf openjdk-17-jdk unzip zip lld
+
+    - name: Install Buildozer and Cython
+      run: |
+        pip install --upgrade pip
+        pip install buildozer cython==3.0.11 kivy
+
+    - name: Build APK with Buildozer
+      run: |
+        yes | buildozer android debug
+      env:
+        TERM: xterm
+
+    - name: Upload APK Artifact
+      uses: actions/artifacts@v4
+      with:
+        name: OBD-Vision-Android-APK
+        path: bin/*.apk
