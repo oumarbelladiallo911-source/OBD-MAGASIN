@@ -7,6 +7,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
+    timeout-minutes: 25
     container:
       image: kivy/buildozer:latest
     steps:
@@ -14,16 +15,28 @@ jobs:
 
       - name: Build APK
         run: |
-          set -o pipefail
-          yes y | buildozer -v android debug 2>&1 | tee build.log
+          set -eo pipefail
+          yes y | buildozer android debug 2>&1 | tee build.log
+          # Si buildozer plante, on s'arrete ici tout de suite
+          test ${PIPESTATUS[0]} -eq 0
+
+      - name: LA LIGNE OU CA A PLANTE
+        if: failure()
+        run: |
+          echo "===== LA SEULE LIGNE OU CA A PLANTE ====="
+          grep -i -E "error|failed|exception|traceback" build.log | tail -n 5
+          echo "===== LES 20 DERNIERES LIGNES ====="
+          tail -n 20 build.log
 
       - name: Upload log
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: build-log
           path: build.log
 
       - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: apk
