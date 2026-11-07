@@ -48,7 +48,7 @@ jobs:
         BUILDOZER_ALLOW_ORG_APK: "1"
 
     - name: Upload APK Artifact
-      uses: actions/artifacts@v4
+      uses: actions/upload-artifact@v4
       with:
         name: OBD-Vision-Android-APK
         path: bin/*.apk
