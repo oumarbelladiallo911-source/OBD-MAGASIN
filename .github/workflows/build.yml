@@ -39,13 +39,15 @@ jobs:
           echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME" >> $GITHUB_ENV
           echo "ANDROID_NDK_ROOT=$ANDROID_NDK_HOME" >> $GITHUB_ENV
           cd $HOME/.buildozer/android/platform/
+          echo "=== TELECHARGEMENT NDK ==="
           if [ ! -d "android-ndk-r25b" ]; then
-            wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip -O ndk.zip
+            wget https://dl.google.com/android/repository/android-ndk-r25b-linux.zip -O ndk.zip
             unzip -q ndk.zip
             rm ndk.zip
           fi
+          echo "=== TELECHARGEMENT ANT - LIEN ARCHIVE CORRIGE ==="
           if [ ! -d "apache-ant-1.10.14" ]; then
-            wget -q https://dlcdn.apache.org/ant/binaries/apache-ant-1.10.14-bin.tar.gz -O ant.tar.gz
+            wget https://archive.apache.org/dist/ant/binaries/apache-ant-1.10.14-bin.tar.gz -O ant.tar.gz
             tar -xzf ant.tar.gz
             rm ant.tar.gz
           fi
