@@ -24,40 +24,48 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses-dev libncursesw5-dev libtinfo-dev cmake libffi-dev libssl-dev wget
+          sudo apt install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses-dev libncursesw5-dev libtinfo-dev cmake libffi-dev libssl-dev wget ant
           pip install --upgrade pip
           pip install buildozer cython==0.29.36
 
-      - name: Pre-download Android SDK + NDK with wget
+      - name: Pre-download SDK + NDK + Ant
         run: |
           mkdir -p $HOME/.buildozer/android/platform/android-sdk
           export ANDROID_HOME=$HOME/.buildozer/android/platform/android-sdk
           export ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
+          export ANDROID_NDK_HOME=$HOME/.buildozer/android/platform/android-ndk-r25b
           echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
           echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
-          # SDK cmdline tools
+          echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME" >> $GITHUB_ENV
+          echo "ANDROID_NDK_ROOT=$ANDROID_NDK_HOME" >> $GITHUB_ENV
           cd /tmp
-          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdtools.zip
-          unzip -q cmdtools.zip -d $ANDROID_HOME/cmdline-tools
-          mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest || true
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip -O cmdtools.zip
+          rm -rf $ANDROID_HOME/cmdline-tools
+          mkdir -p $ANDROID_HOME/cmdline-tools/latest
+          unzip -q -o cmdtools.zip -d /tmp/cmdtools_tmp
+          cp -r /tmp/cmdtools_tmp/cmdline-tools/* $ANDROID_HOME/cmdline-tools/latest/
           export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$PATH
-          yes | sdkmanager --licenses
+          yes | sdkmanager --licenses || true
           sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2"
-          # NDK - on le telecharge nous meme, Buildozer ne va plus le telecharger
           cd $HOME/.buildozer/android/platform/
           if [ ! -d "android-ndk-r25b" ]; then
             wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip -O ndk.zip
             unzip -q ndk.zip
             rm ndk.zip
           fi
+          if [ ! -d "apache-ant-1.10.14" ]; then
+            wget -q https://dlcdn.apache.org/ant/binaries/apache-ant-1.10.14-bin.tar.gz -O ant.tar.gz
+            tar -xzf ant.tar.gz
+            rm ant.tar.gz
+          fi
           ls -la $HOME/.buildozer/android/platform/
+          ls -la $ANDROID_HOME/cmdline-tools/latest/bin/ | head -n 20
 
       - name: Build APK
         run: |
-          set -o pipefail
           buildozer -v android debug 2>&1 | tee build.log
-          echo "===== DERNIERES 300 LIGNES ====="
-          tail -n 300 build.log
+          echo "===== DERNIERES 200 LIGNES ====="
+          tail -n 200 build.log
 
       - name: Upload log
         if: always()
