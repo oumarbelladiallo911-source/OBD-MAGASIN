@@ -17,16 +17,17 @@ jobs:
         run: |
           set -eo pipefail
           yes y | buildozer android debug 2>&1 | tee build.log
-          # Si buildozer plante, on s'arrete ici tout de suite
           test ${PIPESTATUS[0]} -eq 0
 
       - name: LA LIGNE OU CA A PLANTE
         if: failure()
         run: |
-          echo "===== LA SEULE LIGNE OU CA A PLANTE ====="
-          grep -i -E "error|failed|exception|traceback" build.log | tail -n 5
-          echo "===== LES 20 DERNIERES LIGNES ====="
-          tail -n 20 build.log
+          echo "===== LA VRAIE ERREUR EST JUSTE AVANT ====="
+          grep -n "Buildozer failed" build.log | tail -n 1
+          LIGNE=$(grep -n "Buildozer failed" build.log | tail -n 1 | cut -d: -f1)
+          DEBUT=$((LIGNE - 80))
+          if [ $DEBUT -lt 1 ]; then DEBUT=1; fi
+          sed -n "${DEBUT},${LIGNE}p" build.log
 
       - name: Upload log
         if: always()
