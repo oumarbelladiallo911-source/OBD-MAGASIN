@@ -183,3 +183,179 @@ def job_effectuer_vente():
         else: cr.execute("DELETE FROM alerte WHERE nom_produit=?", (prod,))
         cn.commit(); cn.close(); p.dismiss(); afficher_popup_info("Succès", "Vente faite !"); rafraichir_tableaux()
     bv.bind(on_press=valider); p.open()
+def job_vente_credit():
+    conn = sqlite3.connect(DB_PATH); cur = conn.cursor()
+    cur.execute("SELECT nom_produit FROM base_donnees")
+    liste_prods = [r[0] for r in cur.fetchall()]; conn.close()
+    if not liste_prods:
+        afficher_popup_erreur("Erreur", "Aucun produit disponible.")
+        return
+    box = BoxLayout(orientation='vertical', padding=10, spacing=5)
+    box.add_widget(Label(text="Nom du Client :"))
+    e_cl = TextInput(multiline=False, size_hint_y=None, height=38); box.add_widget(e_cl)
+    box.add_widget(Label(text="Numéro de Téléphone :"))
+    e_tel = TextInput(multiline=False, size_hint_y=None, height=38); box.add_widget(e_tel)
+    box.add_widget(Label(text="Produit Endetté :"))
+    combo_prod = Spinner(text=liste_prods[0], values=liste_prods, size_hint_y=None, height=38); box.add_widget(combo_prod)
+    box.add_widget(Label(text="Quantité Endettée :"))
+    e_qte = TextInput(text="1", multiline=False, size_hint_y=None, height=38); box.add_widget(e_qte)
+    box.add_widget(Label(text="Montant Total Crédit (FG) :"))
+    e_mt = TextInput(multiline=False, size_hint_y=None, height=38); box.add_widget(e_mt)
+    bv = Button(text="Valider le Crédit", background_color=get_color_from_hex("#D35400"), size_hint_y=None, height=45)
+    box.add_widget(bv)
+    p = Popup(title="Vente A Crédit", content=box, size_hint=(0.95, 0.85))
+    def Enregistrer(ins):
+        cl = e_cl.text.strip(); tel = e_tel.text.strip(); prod = combo_prod.text
+        try: qte = float(e_qte.text); mt = float(e_mt.text)
+        except: afficher_popup_erreur("Erreur", "Champs numériques erronés."); return
+        if not cl or not prod or mt <= 0 or qte <= 0:
+            afficher_popup_erreur("Erreur", "Veuillez remplir tous les champs."); return
+        cn = sqlite3.connect(DB_PATH); cr = cn.cursor()
+        cr.execute("SELECT id_produit, prix_vente, stock, qte_vendu FROM base_donnees WHERE nom_produit=?", (prod,))
+        row_prod = cr.fetchone()
+        if not row_prod: afficher_popup_erreur("Erreur", "Produit introuvable."); cn.close(); return
+        idp, pf, stk, qv = row_prod; stock_rest = stk - (qv + qte)
+        if stock_rest < 0:
+            afficher_popup_erreur("Vente Bloquée !", f"Stock insuffisant. Reste: {int(stk-qv)}"); cn.close(); return
+        cr.execute("UPDATE base_donnees SET qte_vendu = qte_vendu + ? WHERE nom_produit=?", (qte, prod))
+        dt = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        rem_u = pf - (mt / qte)
+        cr.execute("INSERT INTO historique (date_vente, id_produit, nom_produit, qte_vendu, prix_fixe, prix_vendu, remise_unitaire, remise_totale, montant_total, statut) VALUES (?,?,?,?,?,?,?,?,?,?)", (dt, idp, prod, qte, pf, mt/qte, rem_u, rem_u*qte, mt, "Vente à Crédit"))
+        cr.execute("INSERT INTO credit (date_enregistrement, qte, nom_produit, nom_client, montant_credit, somme_restant, telephone, situation) VALUES (?,?,?,?,?,?,?,?)", (dt, qte, prod, cl, mt, mt, tel, "Vente à Crédit"))
+        if stock_rest <= 10: cr.execute("INSERT OR REPLACE INTO alerte (date_alerte, nom_produit, stock_restant) VALUES (?, ?, ?)", (dt, prod, stock_rest))
+        else: cr.execute("DELETE FROM alerte WHERE nom_produit=?", (prod,))
+        cn.commit(); cn.close(); p.dismiss(); afficher_popup_info("Succès", "Crédit enregistré !"); rafraichir_tableaux()
+    bv.bind(on_press=Enregistrer); p.open()
+
+def job_vente_credit():
+    conn = sqlite3.connect(DB_PATH); cur = conn.cursor()
+    cur.execute("SELECT nom_produit FROM base_donnees")
+    liste_prods = [r[0] for r in cur.fetchall()]; conn.close()
+    if not liste_prods:
+        afficher_popup_erreur("Erreur", "Aucun produit disponible.")
+        return
+    box = BoxLayout(orientation='vertical', padding=10, spacing=5)
+    box.add_widget(Label(text="Nom du Client :"))
+    e_cl = TextInput(multiline=False, size_hint_y=None, height=38); box.add_widget(e_cl)
+    box.add_widget(Label(text="Numéro de Téléphone :"))
+    e_tel = TextInput(multiline=False, size_hint_y=None, height=38); box.add_widget(e_tel)
+    box.add_widget(Label(text="Produit Endetté :"))
+    combo_prod = Spinner(text=liste_prods[0], values=liste_prods, size_hint_y=None, height=38); box.add_widget(combo_prod)
+    box.add_widget(Label(text="Quantité Endettée :"))
+    e_qte = TextInput(text="1", multiline=False, size_hint_y=None, height=38); box.add_widget(e_qte)
+    box.add_widget(Label(text="Montant Total Crédit (FG) :"))
+    e_mt = TextInput(multiline=False, size_hint_y=None, height=38); box.add_widget(e_mt)
+    bv = Button(text="Valider le Crédit", background_color=get_color_from_hex("#D35400"), size_hint_y=None, height=45)
+    box.add_widget(bv)
+    p = Popup(title="Vente A Crédit", content=box, size_hint=(0.95, 0.85))
+    def Enregistrer(ins):
+        cl = e_cl.text.strip(); tel = e_tel.text.strip(); prod = combo_prod.text
+        try: qte = float(e_qte.text); mt = float(e_mt.text)
+        except: afficher_popup_erreur("Erreur", "Champs numériques erronés."); return
+        if not cl or not prod or mt <= 0 or qte <= 0:
+            afficher_popup_erreur("Erreur", "Veuillez remplir tous les champs."); return
+        cn = sqlite3.connect(DB_PATH); cr = cn.cursor()
+        cr.execute("SELECT id_produit, prix_vente, stock, qte_vendu FROM base_donnees WHERE nom_produit=?", (prod,))
+        row_prod = cr.fetchone()
+        if not row_prod: afficher_popup_erreur("Erreur", "Produit introuvable."); cn.close(); return
+        idp, pf, stk, qv = row_prod; stock_rest = stk - (qv + qte)
+        if stock_rest < 0:
+            afficher_popup_erreur("Vente Bloquée !", f"Stock insuffisant. Reste: {int(stk-qv)}"); cn.close(); return
+        cr.execute("UPDATE base_donnees SET qte_vendu = qte_vendu + ? WHERE nom_produit=?", (qte, prod))
+        dt = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        rem_u = pf - (mt / qte)
+        cr.execute("INSERT INTO historique (date_vente, id_produit, nom_produit, qte_vendu, prix_fixe, prix_vendu, remise_unitaire, remise_totale, montant_total, statut) VALUES (?,?,?,?,?,?,?,?,?,?)", (dt, idp, prod, qte, pf, mt/qte, rem_u, rem_u*qte, mt, "Vente à Crédit"))
+        cr.execute("INSERT INTO credit (date_enregistrement, qte, nom_produit, nom_client, montant_credit, somme_restant, telephone, situation) VALUES (?,?,?,?,?,?,?,?)", (dt, qte, prod, cl, mt, mt, tel, "Vente à Crédit"))
+        if stock_rest <= 10: cr.execute("INSERT OR REPLACE INTO alerte (date_alerte, nom_produit, stock_restant) VALUES (?, ?, ?)", (dt, prod, stock_rest))
+        else: cr.execute("DELETE FROM alerte WHERE nom_produit=?", (prod,))
+        cn.commit(); cn.close(); p.dismiss(); afficher_popup_info("Succès", "Crédit enregistré !"); rafraichir_tableaux()
+    bv.bind(on_press=Enregistrer); p.open()
+
+def job_vente_credit():
+    conn = sqlite3.connect(DB_PATH); cur = conn.cursor()
+    cur.execute("SELECT nom_produit FROM base_donnees")
+    liste_prods = [r[0] for r in cur.fetchall()]; conn.close()
+    if not liste_prods:
+        afficher_popup_erreur("Erreur", "Aucun produit disponible.")
+        return
+    box = BoxLayout(orientation='vertical', padding=10, spacing=5)
+    box.add_widget(Label(text="Nom du Client :"))
+    e_cl = TextInput(multiline=False, size_hint_y=None, height=38); box.add_widget(e_cl)
+    box.add_widget(Label(text="Numéro de Téléphone :"))
+    e_tel = TextInput(multiline=False, size_hint_y=None, height=38); box.add_widget(e_tel)
+    box.add_widget(Label(text="Produit Endetté :"))
+    combo_prod = Spinner(text=liste_prods[0], values=liste_prods, size_hint_y=None, height=38); box.add_widget(combo_prod)
+    box.add_widget(Label(text="Quantité Endettée :"))
+    e_qte = TextInput(text="1", multiline=False, size_hint_y=None, height=38); box.add_widget(e_qte)
+    box.add_widget(Label(text="Montant Total Crédit (FG) :"))
+    e_mt = TextInput(multiline=False, size_hint_y=None, height=38); box.add_widget(e_mt)
+    bv = Button(text="Valider le Crédit", background_color=get_color_from_hex("#D35400"), size_hint_y=None, height=45)
+    box.add_widget(bv)
+    p = Popup(title="Vente A Crédit", content=box, size_hint=(0.95, 0.85))
+    def Enregistrer(ins):
+        cl = e_cl.text.strip(); tel = e_tel.text.strip(); prod = combo_prod.text
+        try: qte = float(e_qte.text); mt = float(e_mt.text)
+        except: afficher_popup_erreur("Erreur", "Champs numériques erronés."); return
+        if not cl or not prod or mt <= 0 or qte <= 0:
+            afficher_popup_erreur("Erreur", "Veuillez remplir tous les champs."); return
+        cn = sqlite3.connect(DB_PATH); cr = cn.cursor()
+        cr.execute("SELECT id_produit, prix_vente, stock, qte_vendu FROM base_donnees WHERE nom_produit=?", (prod,))
+        row_prod = cr.fetchone()
+        if not row_prod: afficher_popup_erreur("Erreur", "Produit introuvable."); cn.close(); return
+        idp, pf, stk, qv = row_prod; stock_rest = stk - (qv + qte)
+        if stock_rest < 0:
+            afficher_popup_erreur("Vente Bloquée !", f"Stock insuffisant. Reste: {int(stk-qv)}"); cn.close(); return
+        cr.execute("UPDATE base_donnees SET qte_vendu = qte_vendu + ? WHERE nom_produit=?", (qte, prod))
+        dt = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        rem_u = pf - (mt / qte)
+        cr.execute("INSERT INTO historique (date_vente, id_produit, nom_produit, qte_vendu, prix_fixe, prix_vendu, remise_unitaire, remise_totale, montant_total, statut) VALUES (?,?,?,?,?,?,?,?,?,?)", (dt, idp, prod, qte, pf, mt/qte, rem_u, rem_u*qte, mt, "Vente à Crédit"))
+        cr.execute("INSERT INTO credit (date_enregistrement, qte, nom_produit, nom_client, montant_credit, somme_restant, telephone, situation) VALUES (?,?,?,?,?,?,?,?)", (dt, qte, prod, cl, mt, mt, tel, "Vente à Crédit"))
+        if stock_rest <= 10: cr.execute("INSERT OR REPLACE INTO alerte (date_alerte, nom_produit, stock_restant) VALUES (?, ?, ?)", (dt, prod, stock_rest))
+        else: cr.execute("DELETE FROM alerte WHERE nom_produit=?", (prod,))
+        cn.commit(); cn.close(); p.dismiss(); afficher_popup_info("Succès", "Crédit enregistré !"); rafraichir_tableaux()
+    bv.bind(on_press=Enregistrer); p.open()
+
+def job_vente_credit():
+    conn = sqlite3.connect(DB_PATH); cur = conn.cursor()
+    cur.execute("SELECT nom_produit FROM base_donnees")
+    liste_prods = [r[0] for r in cur.fetchall()]; conn.close()
+    if not liste_prods:
+        afficher_popup_erreur("Erreur", "Aucun produit disponible.")
+        return
+    box = BoxLayout(orientation='vertical', padding=10, spacing=5)
+    box.add_widget(Label(text="Nom du Client :"))
+    e_cl = TextInput(multiline=False, size_hint_y=None, height=38); box.add_widget(e_cl)
+    box.add_widget(Label(text="Numéro de Téléphone :"))
+    e_tel = TextInput(multiline=False, size_hint_y=None, height=38); box.add_widget(e_tel)
+    box.add_widget(Label(text="Produit Endetté :"))
+    combo_prod = Spinner(text=liste_prods[0], values=liste_prods, size_hint_y=None, height=38); box.add_widget(combo_prod)
+    box.add_widget(Label(text="Quantité Endettée :"))
+    e_qte = TextInput(text="1", multiline=False, size_hint_y=None, height=38); box.add_widget(e_qte)
+    box.add_widget(Label(text="Montant Total Crédit (FG) :"))
+    e_mt = TextInput(multiline=False, size_hint_y=None, height=38); box.add_widget(e_mt)
+    bv = Button(text="Valider le Crédit", background_color=get_color_from_hex("#D35400"), size_hint_y=None, height=45)
+    box.add_widget(bv)
+    p = Popup(title="Vente A Crédit", content=box, size_hint=(0.95, 0.85))
+    def Enregistrer(ins):
+        cl = e_cl.text.strip(); tel = e_tel.text.strip(); prod = combo_prod.text
+        try: qte = float(e_qte.text); mt = float(e_mt.text)
+        except: afficher_popup_erreur("Erreur", "Champs numériques erronés."); return
+        if not cl or not prod or mt <= 0 or qte <= 0:
+            afficher_popup_erreur("Erreur", "Veuillez remplir tous les champs."); return
+        cn = sqlite3.connect(DB_PATH); cr = cn.cursor()
+        cr.execute("SELECT id_produit, prix_vente, stock, qte_vendu FROM base_donnees WHERE nom_produit=?", (prod,))
+        row_prod = cr.fetchone()
+        if not row_prod: afficher_popup_erreur("Erreur", "Produit introuvable."); cn.close(); return
+        idp, pf, stk, qv = row_prod; stock_rest = stk - (qv + qte)
+        if stock_rest < 0:
+            afficher_popup_erreur("Vente Bloquée !", f"Stock insuffisant. Reste: {int(stk-qv)}"); cn.close(); return
+        cr.execute("UPDATE base_donnees SET qte_vendu = qte_vendu + ? WHERE nom_produit=?", (qte, prod))
+        dt = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        rem_u = pf - (mt / qte)
+        cr.execute("INSERT INTO historique (date_vente, id_produit, nom_produit, qte_vendu, prix_fixe, prix_vendu, remise_unitaire, remise_totale, montant_total, statut) VALUES (?,?,?,?,?,?,?,?,?,?)", (dt, idp, prod, qte, pf, mt/qte, rem_u, rem_u*qte, mt, "Vente à Crédit"))
+        cr.execute("INSERT INTO credit (date_enregistrement, qte, nom_produit, nom_client, montant_credit, somme_restant, telephone, situation) VALUES (?,?,?,?,?,?,?,?)", (dt, qte, prod, cl, mt, mt, tel, "Vente à Crédit"))
+        if stock_rest <= 10: cr.execute("INSERT OR REPLACE INTO alerte (date_alerte, nom_produit, stock_restant) VALUES (?, ?, ?)", (dt, prod, stock_rest))
+        else: cr.execute("DELETE FROM alerte WHERE nom_produit=?", (prod,))
+        cn.commit(); cn.close(); p.dismiss(); afficher_popup_info("Succès", "Crédit enregistré !"); rafraichir_tableaux()
+    bv.bind(on_press=Enregistrer); p.open()
+
