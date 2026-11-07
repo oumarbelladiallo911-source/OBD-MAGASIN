@@ -19,16 +19,11 @@ jobs:
           yes y | buildozer android debug 2>&1 | tee build.log
           test ${PIPESTATUS[0]} -eq 0
 
-      - name: LA LIGNE OU CA A PLANTE
+           - name: LA LIGNE OU CA A PLANTE
         if: failure()
         run: |
-          echo "===== LA VRAIE ERREUR EST JUSTE AVANT ====="
-          grep -n "Buildozer failed" build.log | tail -n 1
-          LIGNE=$(grep -n "Buildozer failed" build.log | tail -n 1 | cut -d: -f1)
-          DEBUT=$((LIGNE - 80))
-          if [ $DEBUT -lt 1 ]; then DEBUT=1; fi
-          sed -n "${DEBUT},${LIGNE}p" build.log
-
+          echo "===== CHERCHE FPDF2 ET RECIPE ====="
+          grep -n -i "recipe\|fpdf2\|no recipe\|failed" build.log | head -n 100
       - name: Upload log
         if: always()
         uses: actions/upload-artifact@v4
