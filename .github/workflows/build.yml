@@ -25,8 +25,10 @@ jobs:
       - name: LA LIGNE OU CA A PLANTE
         if: failure()
         run: |
-          echo "===== CHERCHE FPDF2 ET RECIPE ====="
-          grep -n -i "recipe\|fpdf2\|no recipe\|failed" build.log | head -n 100
+          echo "===== 100 DERNIERES LIGNES ====="
+          tail -n 100 build.log
+          echo "=== LES ERREURS ==="
+          grep -i -n "error/|failed/|exception/|traceback/|fatal" build.log | tail -n 50
       - name: Upload log
         if: always()
         uses: actions/upload-artifact@v4
