@@ -1,44 +1,43 @@
-name: Build Android APK (Kivy)
+name: Build Android APK (DIEN SANOU)
 
 on:
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
-  workflow_dispatch: # Permet de lancer le build manuellement depuis GitHub
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
     - name: Checkout du code
       uses: actions/checkout@v4
 
-    - name: Configuration de l'environnement Python
+    - name: Configuration de Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
 
-    - name: Installation des dépendances système requises par Buildozer
+    - name: Installation des dépendances Linux obligatoires
       run: |
         sudo apt-get update
-        sudo apt-get install -y ccache git libffi-dev libssl-dev autoconf automake libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake zip unzip
-        sudo apt-get install -y openjdk-17-jdk
+        sudo apt-get install -y ccache git libffi-dev libssl-dev autoconf automake libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake zip unzip openjdk-17-jdk
         pip install --upgrade pip
-        pip install cython buildozer toolbelt
+        pip install cython==0.29.36 buildozer toolbelt
 
-    - name: Build de l'APK avec Buildozer
-      id: buildozer
+    - name: Build de l'APK (Contournement de la sécurité Root)
       run: |
-        # Force buildozer à accepter les licences Android SDK en mode automatique
+        # Création forcée des dossiers locaux pour Buildozer
+        mkdir -p ~/.buildozer
+        # Exécution en mode debug
         yes | buildozer android debug
       env:
-        # Évite les blocages interactifs pendant le build sur GitHub
         CI: true
 
-    - name: Téléchargement de l'APK final (Artifact)
+    - name: Sauvegarde de l'APK final
       uses: actions/upload-artifact@v4
       with:
-        name: MonApplication-Android-APK
+        name: DIEN-SANOU-APK
         path: bin/*.apk
