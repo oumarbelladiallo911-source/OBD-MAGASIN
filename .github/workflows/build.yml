@@ -3,7 +3,6 @@ on:
   push:
     branches: [ main ]
   workflow_dispatch:
-
 jobs:
   build:
     runs-on: ubuntu-22.04
@@ -12,13 +11,17 @@ jobs:
       image: kivy/buildozer:latest
     steps:
       - uses: actions/checkout@v4
-
+      - name: Get fpdf2 en dossier
+        run: |
+          pip download fpdf2 --no-deps -d /tmp/fpdfdl
+          python3 -c "import zipfile, glob; z=glob.glob('/tmp/fpdfdl/*.whl')[0]; zipfile.ZipFile(z).extractall('/tmp/fpdf_unzip')"
+          cp -r /tmp/fpdf_unzip/fpdf ./fpdf
+          ls -lh fpdf | head
       - name: Build APK
         run: |
           set -eo pipefail
-          yes y | buildozer android debug 2>&1 | tee build.log
+          yes | buildozer android debug 2>&1 | tee build.log
           test ${PIPESTATUS[0]} -eq 0
-
       - name: LA LIGNE OU CA A PLANTE
         if: failure()
         run: |
@@ -30,7 +33,6 @@ jobs:
         with:
           name: build-log
           path: build.log
-
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
