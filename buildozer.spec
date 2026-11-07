@@ -5,7 +5,7 @@ package.domain = org.dien.sanou
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,db
 version = 1.0.0
-
+icon.filename = %(source.dir)s/logo.png
 # Les dépendances indispensables (Kivy et FPDF pour tes impressions)
 requirements = python3,kivy==2.3.0,fpdf
 
