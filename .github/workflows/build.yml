@@ -30,12 +30,9 @@ jobs:
       run: |
         mkdir -p ~/.android
         touch ~/.android/repositories.cfg
-        accept_sdk_licenses() {
-          mkdir -p "$ANDROID_HOME/licenses"
-          echo -e "244d2d9e8db31f3b97b4d22e06cf348d28652243\n37b75216962534068b39b1800d14bb0887e21df4\n2b3b858e9647d210925d48dd810e14e1a02d338f\n84831b9409646a918e30573bab4c9c91346d8abd\n504667f4c0de7af1a06de9f4b1727b84351f2910\n8933bad161af4178b1185d1a37fbf41ea5269c55\n659f17331cdd12911b05567b938e5d3297a0b3e5" > "$ANDROID_HOME/licenses/android-sdk-license"
-          echo -e "851f5f671f6e6115661da6c533544d1423d6a2cd" > "$ANDROID_HOME/licenses/android-sdk-preview-license"
-        }
-        accept_sdk_licenses
+        mkdir -p "$ANDROID_HOME/licenses"
+        echo -e "244d2d9e8db31f3b97b4d22e06cf348d28652243\n37b75216962534068b39b1800d14bb0887e21df4\n2b3b858e9647d210925d48dd810e14e1a02d338f\n84831b9409646a918e30573bab4c9c91346d8abd\n504667f4c0de7af1a06de9f4b1727b84351f2910\n8933bad161af4178b1185d1a37fbf41ea5269c55\n659f17331cdd12911b05567b938e5d3297a0b3e5" > "$ANDROID_HOME/licenses/android-sdk-license"
+        echo -e "851f5f671f6e6115661da6c533544d1423d6a2cd" > "$ANDROID_HOME/licenses/android-sdk-preview-license"
 
     - name: Install Buildozer and Cython
       run: |
@@ -44,13 +41,14 @@ jobs:
 
     - name: Build APK with Buildozer
       run: |
-        yes | buildozer android debug
+        buildozer android debug
       env:
         TERM: xterm
         GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+        BUILDOZER_ALLOW_ORG_APK: "1"
 
     - name: Upload APK Artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/artifacts@v4
       with:
         name: OBD-Vision-Android-APK
         path: bin/*.apk
