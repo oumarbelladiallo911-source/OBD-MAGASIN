@@ -39,13 +39,11 @@ jobs:
           echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME" >> $GITHUB_ENV
           echo "ANDROID_NDK_ROOT=$ANDROID_NDK_HOME" >> $GITHUB_ENV
           cd $HOME/.buildozer/android/platform/
-          echo "=== TELECHARGEMENT NDK ==="
           if [ ! -d "android-ndk-r25b" ]; then
             wget https://dl.google.com/android/repository/android-ndk-r25b-linux.zip -O ndk.zip
             unzip -q ndk.zip
             rm ndk.zip
           fi
-          echo "=== TELECHARGEMENT ANT - LIEN ARCHIVE CORRIGE ==="
           if [ ! -d "apache-ant-1.10.14" ]; then
             wget https://archive.apache.org/dist/ant/binaries/apache-ant-1.10.14-bin.tar.gz -O ant.tar.gz
             tar -xzf ant.tar.gz
@@ -55,19 +53,16 @@ jobs:
 
       - name: Build APK
         run: |
+          set -o pipefail
           buildozer -v android debug 2>&1 | tee build.log
-          echo "===== DERNIERES 200 LIGNES ====="
-          tail -n 200 build.log
 
       - name: Upload log
-        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: build-log
           path: build.log
 
       - name: Upload APK
-        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: apk
