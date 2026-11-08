@@ -89,3 +89,63 @@ def afficher_popup_info(titre, message):
     p = Popup(title=titre, content=box, size_hint=(0.85, 0.3))
     btn.bind(on_press=p.dismiss)
     p.open()
+def verifier_mot_de_passe_mobile(on_success):
+    box = BoxLayout(orientation='vertical', padding=10, spacing=5)
+    box.add_widget(Label(text="Zone Protégée - Entrez le mot de passe :"))
+    pwd = TextInput(password=True, multiline=False, size_hint_y=None, height=40)
+    box.add_widget(pwd)
+    bl = BoxLayout(spacing=10, size_hint_y=None, height=40)
+    bv = Button(text="Valider", background_color=get_color_from_hex("#27AE60"))
+    ba = Button(text="Annuler", background_color=get_color_from_hex("#E74C3C"))
+    bl.add_widget(bv); bl.add_widget(ba); box.add_widget(bl)
+    p = Popup(title="Sécurité Admin", content=box, size_hint=(0.85, 0.35))
+    ba.bind(on_press=p.dismiss)
+    def valider_pwd(ins):
+        if pwd.text.strip() == MOT_DE_PASSE_ADMIN:
+            p.dismiss(); on_success()
+        else: afficher_popup_erreur("Accès Refusé", "Incorrect !")
+    bv.bind(on_press=valider_pwd); p.open()
+
+def rafraichir_tableaux():
+    app = App.get_running_app()
+    if app and app.root:
+        try: app.root.get_screen('principal').mettre_a_jour_les_donnees()
+        except: pass
+
+def job_effectuer_vente():
+    conn = sqlite3.connect(DB_PATH); cur = conn.cursor()
+    cur.execute("SELECT nom_produit FROM base_donnees"); liste = [r[0] for r in cur.fetchall()]; conn.close()
+    if not liste: afficher_popup_erreur("Erreur", "Aucun produit disponible."); return
+    box = BoxLayout(orientation='vertical', padding=10, spacing=5)
+    box.add_widget(Label(text="Sélectionnez le Produit :"))
+    combo = Spinner(text=liste[0], values=liste, size_hint_y=None, height=40); box.add_widget(combo)
+    box.add_widget(Label(text="Quantité :"))
+    e_qte = TextInput(text="1", multiline=False, size_hint_y=None, height=40); box.add_widget(e_qte)
+    lbl_p = Label(text="", color=(0.8,0.4,0,1)); box.add_widget(lbl_p)
+    def maj(sp, text):
+        cn = sqlite3.connect(DB_PATH); cr = cn.cursor()
+        cr.execute("SELECT prix_vente FROM base_donnees WHERE nom_produit=?", (text,))
+        res = cr.fetchone(); cn.close()
+        if res: lbl_p.text = f"Prix Fixe : {formater_fg(res[0])}"
+    combo.bind(text=maj); maj(combo, combo.text)
+    box.add_widget(Label(text="Prix Vendu (FG) :"))
+    e_prix = TextInput(multiline=False, size_hint_y=None, height=40); box.add_widget(e_prix)
+    bv = Button(text="Officialiser la Vente", background_color=get_color_from_hex("#27AE60"), size_hint_y=None, height=45)
+    box.add_widget(bv)
+    p = Popup(title="Saisie Vente", content=box, size_hint=(0.9, 0.75))
+    def valider(ins):
+        prod = combo.text
+        try: qte, pv = float(e_qte.text), float(e_prix.text)
+        except: afficher_popup_erreur("Erreur", "Champs invalides."); return
+        if qte <= 0 or pv <= 0: return
+        cn = sqlite3.connect(DB_PATH); cr = cn.cursor()
+        cr.execute("SELECT id_produit, prix_vente, stock, qte_vendu FROM base_donnees WHERE nom_produit=?", (prod,))
+        idp, pf, stk, qv = cr.fetchone()
+        if qte > (stk - qv): afficher_popup_erreur("Impossible !", "Stock insuffisant."); cn.close(); return
+        cr.execute("UPDATE base_donnees SET qte_vendu = qte_vendu + ? WHERE nom_produit=?", (qte, prod))
+        dt = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        cr.execute("INSERT INTO historique (date_vente, id_produit, nom_produit, qte_vendu, prix_fixe, prix_vendu, remise_unitaire, remise_totale, montant_total, statut) VALUES (?,?,?,?,?,?,?,?,?,?)", (dt, idp, prod, qte, pf, pv, pf-pv, (pf-pv)*qte, pv*qte, "Vente Faîte"))
+        if (stk - qv - qte) <= 10: cr.execute("INSERT OR REPLACE INTO alerte (date_alerte, nom_produit, stock_restant) VALUES (?, ?, ?)", (dt, prod, stk-qv-qte))
+        else: cr.execute("DELETE FROM alerte WHERE nom_produit=?", (prod,))
+        cn.commit(); cn.close(); p.dismiss(); afficher_popup_info("Succès", "Vente faite !"); rafraichir_tableaux()
+    bv.bind(on_press=valider); p.open()
