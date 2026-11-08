@@ -316,3 +316,109 @@ def job_statistique_magasin():
         txt = f"BILAN MAGASIN\nDate: {dt_f}\nVentes Jour: {nj}\nMax: {max_p} ({int(dj[max_p])})\nMin: {min_p} ({int(dj[min_p])})\nBénéfice Jour: {formater_fg(bj)}\n"
     txt += f"-----------------------------------------\nBénéfice Total Réel: {formater_fg(bm_total)}"
     conn.close(); afficher_popup_info("BILAN MAGASIN", txt)
+def modifier_produit_existant_form():
+    conn = sqlite3.connect(DB_PATH); cur = conn.cursor()
+    cur.execute("SELECT nom_produit FROM base_donnees"); liste = [r[0] for r in cur.fetchall()]; conn.close()
+    if not liste: afficher_popup_erreur("Erreur", "Aucun produit existant."); return
+    box = BoxLayout(orientation='vertical', padding=10, spacing=5)
+    box.add_widget(Label(text="Sélectionnez le Produit :"))
+    combo = Spinner(text=liste[0], values=liste, size_hint_y=None, height=38); box.add_widget(combo)
+    box.add_widget(Label(text="Quantité à AJOUTER :"))
+    e_q = TextInput(text="0", multiline=False, size_hint_y=None, height=38); box.add_widget(e_q)
+    box.add_widget(Label(text="Nouveau Prix d'achat / Revient (FG) :"))
+    e_pa = TextInput(multiline=False, size_hint_y=None, height=38); box.add_widget(e_pa)
+    box.add_widget(Label(text="Nouveau Prix de Vente Fixe (FG) :"))
+    e_pv = TextInput(multiline=False, size_hint_y=None, height=38); box.add_widget(e_pv)
+    bv = Button(text="Enregistrer les Modifications", background_color=get_color_from_hex("#27AE60"), size_hint_y=None, height=45)
+    box.add_widget(bv)
+    p = Popup(title="Modifier & Réapprovisionner", content=box, size_hint=(0.95, 0.85))
+    def ok_mod(ins):
+        prod = combo.text
+        try: q_add = float(e_q.text); n_pa = float(e_pa.text); n_pv = float(e_pv.text)
+        except: afficher_popup_erreur("Erreur", "Champs invalides."); return
+        cn = sqlite3.connect(DB_PATH); cr = cn.cursor()
+        cr.execute("UPDATE base_donnees SET stock = stock + ?, prix_revient = ?, prix_vente = ? WHERE nom_produit = ?", (q_add, n_pa, n_pv, prod))
+        cr.execute("SELECT stock, qte_vendu FROM base_donnees WHERE nom_produit=?", (prod,))
+        stk, qv = cr.fetchone(); rest = stk - qv
+        if rest <= 10: cr.execute("INSERT OR REPLACE INTO alerte (date_alerte, nom_produit, stock_restant) VALUES (?, ?, ?)", (datetime.now().strftime("%d/%m/%Y %H:%M:%S"), prod, rest))
+        else: cr.execute("DELETE FROM alerte WHERE nom_produit=?", (prod,))
+        cn.commit(); cn.close(); p.dismiss(); afficher_popup_info("Succès", "Informations et stock mis à jour !"); rafraichir_tableaux()
+    bv.bind(on_press=ok_mod); p.open()
+
+def augmenter_stock_existant_form():
+    conn = sqlite3.connect(DB_PATH); cur = conn.cursor()
+    cur.execute("SELECT nom_produit FROM base_donnees"); liste = [r[0] for r in cur.fetchall()]; conn.close()
+    if not liste: afficher_popup_erreur("Erreur", "Aucun produit existant."); return
+    box = BoxLayout(orientation='vertical', padding=10, spacing=5)
+    box.add_widget(Label(text="Sélectionnez le Produit :"))
+    combo = Spinner(text=liste[0], values=liste, size_hint_y=None, height=40); box.add_widget(combo)
+    box.add_widget(Label(text="Quantité à ajouter :"))
+    e_add = TextInput(multiline=False, size_hint_y=None, height=40); box.add_widget(e_add)
+    bv = Button(text="Valider l'Ajout", background_color=get_color_from_hex("#27AE60"), size_hint_y=None, height=45)
+    box.add_widget(bv)
+    p = Popup(title="Augmenter Stock", content=box, size_hint=(0.9, 0.45))
+    def ok_add(ins):
+        prod = combo.text
+        try: q = float(e_add.text)
+        except: afficher_popup_erreur("Erreur", "Quantité invalide."); return
+        if q <= 0: return
+        cn = sqlite3.connect(DB_PATH); cr = cn.cursor()
+        cr.execute("UPDATE base_donnees SET stock = stock + ? WHERE nom_produit=?", (q, prod))
+        cr.execute("SELECT stock, qte_vendu FROM base_donnees WHERE nom_produit=?", (prod,))
+        stk, qv = cr.fetchone(); rest = stk - qv
+        if rest <= 10: cr.execute("INSERT OR REPLACE INTO alerte (date_alerte, nom_produit, stock_restant) VALUES (?, ?, ?)", (datetime.now().strftime("%d/%m/%Y %H:%M:%S"), prod, rest))
+        else: cr.execute("DELETE FROM alerte WHERE nom_produit=?", (prod,))
+        cn.commit(); cn.close(); p.dismiss(); afficher_popup_info("Succès", "Stock augmenté !"); rafraichir_tableaux()
+    bv.bind(on_press=ok_add); p.open()
+
+def job_ajouter_stock():
+    box = BoxLayout(orientation='vertical', padding=15, spacing=10)
+    box.add_widget(Label(text="Voulez-vous apporter des modifications\naux informations du produit ?", halign='center'))
+    bl = BoxLayout(spacing=15, size_hint_y=None, height=45)
+    by = Button(text="Oui (Modifier Infos)", background_color=get_color_from_hex("#2980B9"))
+    bn = Button(text="Non (Juste Stock)", background_color=get_color_from_hex("#27AE60"))
+    bl.add_widget(by); bl.add_widget(bn); box.add_widget(bl)
+    p = Popup(title="Ajout Stock / Produit", content=box, size_hint=(0.9, 0.35))
+    by.bind(on_press=lambda x: [p.dismiss(), modifier_produit_existant_form()])
+    bn.bind(on_press=lambda x: [p.dismiss(), augmenter_stock_existant_form()])
+    p.open()
+
+def job_payer_dette():
+    conn = sqlite3.connect(DB_PATH); cur = conn.cursor()
+    cur.execute("SELECT DISTINCT nom_client FROM credit WHERE situation!='Rembourser 100%'")
+    liste = [r[0] for r in cur.fetchall()]; conn.close()
+    if not liste: afficher_popup_erreur("Erreur", "Aucun client endetté."); return
+    box = BoxLayout(orientation='vertical', padding=10, spacing=5)
+    box.add_widget(Label(text="Selectionnez le Client :"))
+    combo = Spinner(text=liste[0], values=liste, size_hint_y=None, height=40); box.add_widget(combo)
+    lbl = Label(text="", color=(0.8,0.2,0.2,1)); box.add_widget(lbl)
+    def maj(sp, text):
+        cn = sqlite3.connect(DB_PATH); cr = cn.cursor()
+        cr.execute("SELECT SUM(somme_restant) FROM credit WHERE UPPER(nom_client)=UPPER(?) AND situation!='Rembourser 100%'", (text,))
+        res = cr.fetchone(); cn.close()
+        if res and res[0] is not None: lbl.text = f"Reste : {formater_fg(res[0])}"
+    combo.bind(text=maj); maj(combo, combo.text)
+    box.add_widget(Label(text="Montant du Versement (FG) :"))
+    e_p = TextInput(multiline=False, size_hint_y=None, height=40); box.add_widget(e_p)
+    bv = Button(text="Valider le Paiement", background_color=get_color_from_hex("#27AE60"), size_hint_y=None, height=45)
+    box.add_widget(bv)
+    p = Popup(title="Payer Dette", content=box, size_hint=(0.9, 0.6))
+    def encaisser(ins):
+        client = combo.text
+        try: p_paye = float(e_p.text)
+        except: afficher_popup_erreur("Erreur", "Montant invalide."); return
+        if p_paye <= 0: return
+        cn = sqlite3.connect(DB_PATH); cr = cn.cursor()
+        cr.execute("SELECT id, somme_restant, nom_produit, qte FROM credit WHERE UPPER(nom_client)=UPPER(?) AND situation!='Rembourser 100%' LIMIT 1", (client,))
+        row = cr.fetchone()
+        if not row: afficher_popup_erreur("Erreur", "Dette introuvable."); cn.close(); return
+        id_c, reste, prod_endette, qte_endette = row
+        if p_paye > reste: afficher_popup_erreur("Erreur", "La somme dépasse la dette !"); cn.close(); return
+        nst = reste - p_paye; sit = "Rembourser 100%" if nst == 0 else "Remboursé 1/2"
+        cr.execute("UPDATE credit SET somme_payee=somme_payee+?, somme_restant=?, situation=? WHERE id=?", (p_paye, nst, sit, id_c))
+        if nst == 0:
+            cr.execute("SELECT id FROM historique WHERE LOWER(nom_produit)=LOWER(?) AND qte_vendu=? AND statut='Vente à Crédit' LIMIT 1", (prod_endette.strip(), qte_endette))
+            h_row = cr.fetchone()
+            if h_row: cr.execute("UPDATE historique SET statut='Vente Faîte' WHERE id=?", (h_row[0],))
+        cn.commit(); cn.close(); p.dismiss(); afficher_popup_info("Succès", "Paiement pris en compte !"); rafraichir_tableaux()
+    bv.bind(on_press=encaisser); p.open()
