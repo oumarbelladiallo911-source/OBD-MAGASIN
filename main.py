@@ -40,3 +40,52 @@ CODES_DEBLOCAGE = [
     "ns0AP8mEVc2C","ZPykV4cNbEuwdt9","ELPZZvUmjg9dkW5","1EjhzeJ5S5fA3","sDPXP2BwbfaTXLxi",
     "gg8yqkLCAgnJqrc","LetB8yxiWQZHcZJZ","yoGD50xsKc3jY","84jJkIXiwivjRwmf","Lw2MWYiodQw9TvYV"
 ]
+def initialiser_bdd():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("CREATE TABLE IF NOT EXISTS base_donnees (id INTEGER PRIMARY KEY AUTOINCREMENT, date_enregistrement TEXT, id_produit INTEGER, nom_produit TEXT UNIQUE, prix_revient REAL, prix_vente REAL, stock REAL, qte_vendu REAL DEFAULT 0)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS historique (id INTEGER PRIMARY KEY AUTOINCREMENT, date_vente TEXT, id_produit INTEGER, nom_produit TEXT, qte_vendu REAL, prix_fixe REAL, prix_vendu REAL, remise_unitaire REAL, remise_totale REAL, montant_total REAL, statut TEXT)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS alerte (id INTEGER PRIMARY KEY AUTOINCREMENT, date_alerte TEXT, nom_produit TEXT UNIQUE, stock_restant REAL)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS credit (id INTEGER PRIMARY KEY AUTOINCREMENT, date_enregistrement TEXT, qte REAL DEFAULT 1, nom_produit TEXT, nom_client TEXT, montant_credit REAL, somme_payee REAL DEFAULT 0, somme_restant REAL, jours_faits INTEGER DEFAULT 0, telephone TEXT DEFAULT '', situation TEXT)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS comptage_jours (date_unique TEXT PRIMARY KEY)")
+    conn.commit()
+    conn.close()
+
+def enregistrer_jour_utilisation():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    auj = date.today().strftime("%d/%m/%Y")
+    c.execute("INSERT OR IGNORE INTO comptage_jours (date_unique) VALUES (?)", (auj,))
+    conn.commit()
+    c.execute("SELECT COUNT(*) FROM comptage_jours")
+    res = c.fetchone()
+    conn.close()
+    return res[0] if res else 0
+
+initialiser_bdd()
+
+def formater_fg(v):
+    try: return f"{int(float(v)):,}".replace(",", ".") + " FG"
+    except: return "0 FG"
+
+def formater_entier(v):
+    try: return str(int(float(v)))
+    except: return "0"
+
+def afficher_popup_erreur(titre, message):
+    box = BoxLayout(orientation='vertical', padding=10, spacing=5)
+    box.add_widget(Label(text=message, halign='center'))
+    btn = Button(text="OK", size_hint_y=None, height=40, background_color=get_color_from_hex("#E74C3C"))
+    box.add_widget(btn)
+    p = Popup(title=titre, content=box, size_hint=(0.85, 0.3))
+    btn.bind(on_press=p.dismiss)
+    p.open()
+
+def afficher_popup_info(titre, message):
+    box = BoxLayout(orientation='vertical', padding=10, spacing=5)
+    box.add_widget(Label(text=message, halign='center'))
+    btn = Button(text="OK", size_hint_y=None, height=40, background_color=get_color_from_hex("#27AE60"))
+    box.add_widget(btn)
+    p = Popup(title=titre, content=box, size_hint=(0.85, 0.3))
+    btn.bind(on_press=p.dismiss)
+    p.open()
